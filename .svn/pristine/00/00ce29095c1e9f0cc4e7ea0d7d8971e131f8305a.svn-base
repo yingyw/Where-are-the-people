@@ -1,0 +1,18 @@
+
+
+
+public class Info {
+	CensusData data;
+	float x;
+	float y;
+	float top;
+	float left;
+	public Info(CensusData data, float x, float y, float top, float left){
+		this.data = data;
+		this.x =x ;
+		this.y =y;
+		this.top=top;
+		this.left = left;
+	}
+	
+}

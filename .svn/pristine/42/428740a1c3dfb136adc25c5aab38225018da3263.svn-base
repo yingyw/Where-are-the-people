@@ -1,0 +1,64 @@
+import java.util.concurrent.ForkJoinPool;
+
+
+public class VersionFour implements VersionBase {
+	ForkJoinPool fPool = new ForkJoinPool();
+	private CensusData file;
+	int[][] result;
+	Rectangle target;
+	int col;
+	int row;
+	VersionThree v3;
+	public VersionFour(CensusData file, int col, int row, Rectangle target) {
+		this.file=file;
+		result = new int[col][row];
+		this.target = target;
+		this.col = col;
+		this.row = row;
+		v3 = new VersionThree(file,col,row,target);
+	
+	}
+	
+	public Rectangle boundary(){
+		if(file.data_size==0){
+			return null;
+		}
+		ScaleBoundary boundaries = new ScaleBoundary(file,0,file.data_size);
+		Rectangle boundary = boundaries.fourCorners();
+		return boundary;
+	}
+	public int[][] gridPopulation(){
+		Info info = new Info(col,row,boundary(),file);
+		ProcessGridPop gridPop = new ProcessGridPop(0,result.length,info);
+		return fPool.invoke(gridPop);
+	}
+	
+	public int getTargetPopulation(){
+		result = v3.gridSum(gridPopulation());
+		int total = v3.getTargetPopulation(target);
+		return total;
+	}
+	
+	/**
+	 * Return a pair includes population in target query and percent of total
+	 * population
+	 * 
+	 * @return pair includes population in target query and percent of total
+	 *         population
+	 */
+	public Pair<Integer, Float> getPair() {
+		int total = getTargetPopulation();
+		float percentage = (float) total
+				/ (float) scaleBoundary().population * 100;
+		return new Pair<Integer, Float>(total, percentage);
+
+	}
+
+	@Override
+	public Rectangle scaleBoundary() {
+		Rectangle bound = v3.scaleBoundary();
+		return bound;
+	}
+
+}
+

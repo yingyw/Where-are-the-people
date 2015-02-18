@@ -1,0 +1,114 @@
+/**
+ * Yingying Wang (yingyw)
+ * Xiaoyan Chen(h13579)
+ * CSE332 Projects 3
+ */
+/**
+ * This class extends VersionOne and implements VersionBase. A version of the
+ * population queries that uses a single thread and 2D lists to find boundaries
+ * of population map and find sub_population of a query
+ * 
+ */
+public class VersionThree extends VersionOne implements VersionBase {
+	private CensusData file;
+	private Rectangle target;
+	private int[][] nums;
+
+	/**
+	 * Construct a new Version One process with given file,columns, rows and
+	 * target query
+	 * 
+	 * @param file
+	 *            data to go analyze
+	 * @param x
+	 *            number of columns to divide map
+	 * @param y
+	 *            number of rows to divide map
+	 * @param target
+	 *            target query to find population in
+	 */
+	public VersionThree(CensusData file, int x, int y, Rectangle target) {
+		super(file, x, y, target);
+		this.file = file;
+		this.target = target;
+		nums = new int[x][y];
+		gridPopulation();
+		gridSum();
+	}
+
+	/**
+	 * Calculate population inside target query and returns this population
+	 */
+	@Override
+	public int getTargetPopulation() {
+		int total = 0;
+		int west = (int) (target.left - 1);
+		int east = (int) (target.right - 1);
+		int north = (int) target.top - 1;
+		int south = (int) target.bottom - 1;
+		int rightB = nums[east][north];
+		int rightT = 0;
+		if (south - 1 >= 0) {
+			rightT = nums[east][south - 1];
+		}
+		int leftB = 0;
+		if (west - 1 >= 0) {
+			leftB = nums[west - 1][north];
+		}
+		int leftT = 0;
+		if (west - 1 >= 0 && south - 1 >= 0) {
+			leftT = nums[west - 1][south - 1];
+		}
+		total = rightB - rightT - leftB + leftT;
+
+		return total;
+	}
+
+	/**
+	 * Sums the population in each grid position.
+	 */
+	public void gridPopulation() {
+		Rectangle bound = scaleBoundary();
+		for (int i = 0; i <= file.data_size - 1; i++) {
+			CensusGroup grid = file.data[i];
+			float lon = grid.longitude;
+			float lag = grid.latitude;
+			double col = nums.length * (lon - bound.left)
+					/ (bound.right - bound.left);
+			int posCol = (int) col;
+			double row = nums[0].length * (lag - bound.bottom)
+					/ (bound.top - bound.bottom);
+			int posRow = (int) row;
+			if (posCol == nums.length) {
+				posCol = posCol - 1;
+			}
+			if (posRow == nums[0].length) {
+				posRow = posRow - 1;
+			}
+			nums[posCol][posRow] += grid.population;
+		}
+	}
+
+	/**
+	 * Calculates total population from the first position to the current
+	 * position and stores it in each grid position.
+	 */
+	public void gridSum() {
+
+		for (int i = 1; i < nums.length; i++) {
+			nums[i][0] = nums[i][0] + nums[i - 1][0];
+		}
+		for (int j = 1; j < nums[0].length; j++) {
+			nums[0][j] = nums[0][j] + nums[0][j - 1];
+		}
+		for (int i = 1; i < nums.length; i++) {
+			for (int j = 1; j < nums[0].length; j++) {
+				nums[i][j] = nums[i][j] + nums[i - 1][j] + nums[i][j - 1]
+						- nums[i - 1][j - 1];
+			}
+
+		}
+
+	}
+
+}

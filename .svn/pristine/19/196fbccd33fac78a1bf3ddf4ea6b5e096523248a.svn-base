@@ -1,0 +1,44 @@
+
+public class VersionFour extends VersionThree implements VersionBase {
+	private CensusData file;
+	private Rectangle target;
+	private int col;
+	private int row;
+	//int[][] nums;
+	
+	public VersionFour(CensusData file, int col, int row, Rectangle target) {
+		super(file, col, row, target);
+		this.file=file;
+		this.target=target;
+		this.col=col;
+		this.row=row;
+		//nums = new int[col][row];
+		
+	}
+	
+	public Rectangle boundary(){
+		if(file.data_size==0){
+			return null;
+		}
+		ScaleBoundary boundaries = new ScaleBoundary(file,0,file.data_size);
+		Rectangle result = boundaries.fourCorners();
+		return result;
+	}
+	@Override
+	public int[][] gridPopulation(){
+		int[][] result = gridSum();
+	//	result = gridSum();
+		return result;
+	}
+	public int[][] sumGrid(){
+		int[][] result = new int[col][row];
+		
+		float colInc = (Math.abs(target.left-target.right))/col;
+		float rowInc = (Math.abs(target.top-target.bottom))/row;
+		Info parameters = new Info(file,colInc,rowInc,target.top,target.left);
+		ProcessGridPop population = new ProcessGridPop(result,file,0,result.length,parameters);
+		result = population.popGrid();
+		return result;
+	}
+
+}

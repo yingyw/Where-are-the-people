@@ -1,0 +1,31 @@
+import java.util.concurrent.ForkJoinPool;
+
+
+public class VersionFour extends VersionThree implements VersionBase {
+	ForkJoinPool fPool = new ForkJoinPool();
+	
+	private CensusData file;
+	int[][] result;
+	
+	public VersionFour(CensusData file, int col, int row, Rectangle target) {
+		super(file, col, row, target);
+		this.file=file;
+		result = new int[col][row];
+	}
+	
+	public Rectangle boundary(){
+		if(file.data_size==0){
+			return null;
+		}
+		ScaleBoundary boundaries = new ScaleBoundary(file,0,file.data_size);
+		Rectangle boundary = boundaries.fourCorners();
+		return boundary;
+	}
+	@Override
+	public int[][] gridPopulation(){
+		fPool.invoke(new ProcessGridPop(file,0,result.length));
+		return result;
+	}
+	
+
+}

@@ -1,0 +1,110 @@
+/**
+ * Yingying Wang (yingyw)
+ * Xiaoyan Chen(h13579)
+ * CSE332 Projects 3
+ */
+/**
+ * This class is used in VersionFive to calculate the population inside each
+ * grid.
+ */
+public class ProcessGridPopThread extends java.lang.Thread {
+
+	final int THREADS = 4;
+	final int SEQUENTIAL_THRESHOLD = 10;
+	int lo;
+	int hi;
+	int[][] grids;
+	Object[][] lock;
+	CensusData file;
+
+	/**
+	 * Constructs a new ProcessGridPopThread with given data
+	 * 
+	 * @param lo
+	 *            lower bound of grid
+	 * @param hi
+	 *            higher bound of grid
+	 * @param grids
+	 *            a grid that contains certain number cells
+	 * @param lock
+	 *            a list of numbers that contain the number in certain grid
+	 * @param file
+	 *            a file contains position of each grid and its population
+	 */
+	ProcessGridPopThread(int lo, int hi, int[][] grids, Object[][] lock,
+			CensusData file) {
+		this.lo = lo;
+		this.hi = hi;
+		this.grids = grids;
+		this.lock = lock;
+		this.file = file;
+	}
+
+	/**
+	 * Finds the position of given data in the grid and stores the population.
+	 */
+	public void run() {
+		if (hi - lo > SEQUENTIAL_THRESHOLD) {
+			ScaleBoundary boundary = new ScaleBoundary(file, 0, file.data_size);
+			Rectangle bound = boundary.fourCorners();
+			for (int i = 0; i <= file.data_size - 1; i++) {
+				CensusGroup grid = file.data[i];
+				float lon = grid.longitude;
+				float lag = grid.latitude;
+				double col = grids.length * (lon - bound.left)
+						/ (bound.right - bound.left);
+				int posCol = (int) col;
+				double row = grids[0].length * (lag - bound.bottom)
+						/ (bound.top - bound.bottom);
+				int posRow = (int) row;
+				if (posCol == grids.length) {
+					posCol = posCol - 1;
+				}
+				if (posRow == grids[0].length) {
+					posRow = posRow - 1;
+				}
+				// lock the data while adding population
+				synchronized (lock[posCol][posRow]) {
+					grids[posCol][posRow] += grid.population;
+				}
+			}
+		} else {
+			ProcessGridPopThread left = new ProcessGridPopThread(lo,
+					(lo + hi) / 2, grids, lock, file);
+			ProcessGridPopThread right = new ProcessGridPopThread(
+					(lo + hi) / 2, hi, grids, lock, file);
+			left.start();
+			right.run();
+			try {
+				left.join();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	/**
+	 * Returns a list of numbers that contains the population in each grid
+	 * 
+	 * @param grids
+	 *            a grid that contains certain number cells
+	 * @return a list of numbers that stores the population in each grid
+	 * @throws InterruptedException
+	 */
+	public int[][] gridPop(int[][] grids) throws InterruptedException {
+		int len = file.data_size;
+		ProcessGridPopThread[] ts = new ProcessGridPopThread[THREADS];
+		for (int i = 0; i < THREADS; i++) {
+			ts[i] = new ProcessGridPopThread(i * len / THREADS, (i + 1) * len
+					/ THREADS, grids, lock, file);
+			ts[i].run();
+		}
+		for (int i = 0; i < THREADS; i++) {
+			ts[i] = new ProcessGridPopThread(i * len / THREADS, (i + 1) * len
+					/ THREADS, grids, lock, file);
+			ts[i].join();
+		}
+		return grids;
+	}
+
+}

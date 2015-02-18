@@ -1,0 +1,100 @@
+public class VersionFive extends VersionFour implements VersionBase {
+
+	private CensusData file;
+	private Rectangle target;
+	private int[][] grids;
+	private int column;
+	private int row;
+
+	public VersionFive(CensusData file, int x, int y, Rectangle target) {
+		super(file, x, y, target);
+		this.file = file;
+		this.target = target;
+		column = x;
+		row = y;
+		this.grids = new int[x][y];
+
+	}
+	
+	public int[][] gridPopulation() {
+		grids = new int[column][row];
+		VersionFiveThread ts = new VersionFiveThread(0, column, grids, null);
+		this.grids = ts.grids;
+		for (int i = 0; i < grids.length; i++) {
+			for (int j = 0; j < grids[0].length; j++) {
+				System.out.println(grids[i][j]);
+			}
+		}
+		return grids;
+	}
+
+	private class VersionFiveThread extends java.lang.Thread {
+		private static final int THREADS = 4;
+		private static final int SEQUENTIAL_CUTOFF = 100;
+		int lo;
+		int hi;
+		int[][] grids;
+		Object[][] lock;
+
+		VersionFiveThread(int lo, int hi, int[][] grids, Object[][] lock) {
+			this.lo = lo;
+			this.hi = hi;
+			this.grids = grids;
+			this.lock = lock;
+		}
+
+		public void run() {
+			if (hi - lo > SEQUENTIAL_CUTOFF) {
+				Rectangle bound = scaleBoundary();
+				for (int i = 0; i <= file.data_size - 1; i++) {
+					CensusGroup grid = file.data[i];
+					float lon = grid.longitude;
+					float lag = grid.latitude;
+					double col = grids.length * (lon - bound.left)
+							/ (bound.right - bound.left);
+					int posCol = (int) col;
+					double row = grids[0].length * (lag - bound.bottom)
+							/ (bound.top - bound.bottom);
+					int posRow = (int) row;
+					if (posCol == grids.length) {
+						posCol = posCol - 1;
+					}
+					if (posRow == grids[0].length) {
+						posRow = posRow - 1;
+					}
+					Object locked = lock[posCol][posRow];
+					synchronized (locked) {
+						grids[posCol][posRow] += grid.population;
+					}
+				}
+			} else {
+				VersionFiveThread left = new VersionFiveThread(lo, (lo + hi) / 2, grids, lock);
+				VersionFiveThread right = new VersionFiveThread((lo + hi) / 2, hi, grids, lock);
+				left.start();
+				right.start();
+				try {
+					left.join();
+					right.join();
+				} catch (InterruptedException e) {
+					
+					e.printStackTrace();
+				}
+				
+			}
+		}
+		
+		public void gridPop(int[][] grids) throws InterruptedException {
+			int len = file.data_size;
+			VersionFiveThread[] ts = new VersionFiveThread[THREADS];
+			for (int i = 0; i < THREADS; i++) {
+				ts[i] = new VersionFiveThread(i * len / THREADS, (i + 1) * len / THREADS, grids, lock);
+				ts[i].start();
+			}
+			for (int i = 0; i < THREADS; i++) {
+				ts[i] = new VersionFiveThread(i * len / THREADS, (i + 1) * len / THREADS, grids, lock);
+				ts[i].join();
+			}
+		}
+	}
+
+}

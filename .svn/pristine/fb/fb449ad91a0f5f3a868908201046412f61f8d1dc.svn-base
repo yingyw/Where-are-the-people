@@ -1,0 +1,21 @@
+
+public class Info {
+	int col;
+	int row;
+	Rectangle bound;
+	CensusData file;
+	Rectangle target;
+	public Info(int col, int row, Rectangle boundary,CensusData file){
+		this.col=col;
+		this.row=row;
+		bound=boundary;
+		this.file = file;
+	}
+	public Info(int col, int row, Rectangle boundary,CensusData file,Rectangle target){
+		this.col=col;
+		this.row=row;
+		bound=boundary;
+		this.file = file;
+		this.target=target;
+	}
+}

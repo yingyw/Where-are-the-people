@@ -1,0 +1,106 @@
+/**
+ * Yingying Wang (yingyw)
+ * Xiaoyan Chen(h13579)
+ * CSE332 Projects 3
+ */
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveTask;
+
+/**
+ * This class is a part of version two used to calculate population in required
+ * query using parallel implementation traversal for each query .
+ */
+public class TargetPopulation extends RecursiveTask<Integer> {
+	static final long serialVersionUID = 1L;
+	public static ForkJoinPool fjPool = new ForkJoinPool();
+	static final int SEQUENTIAL_THRESHOLD = 100;
+	CensusData grid;
+	int hi;
+	int lo;
+	Rectangle target;
+	int col;
+	int row;
+	Rectangle bound;
+
+	/**
+	 * Construct a new TargetPopulation
+	 * 
+	 * @param grid
+	 *            data to analyze
+	 * @param lo
+	 *            lower bound for parallel calculating
+	 * @param hi
+	 *            higher bound for parallel calculating
+	 * @param target
+	 *            target query
+	 * @param col
+	 *            number of columns to divide map
+	 * @param row
+	 *            number of rows to divide map
+	 * @param bound
+	 *            boundaries of whole map
+	 */
+	public TargetPopulation(CensusData grid, int lo, int hi, Rectangle target,
+			int col, int row, Rectangle bound) {
+		this.grid = grid;
+		this.hi = hi;
+		this.lo = lo;
+		this.target = target;
+		this.col = col;
+		this.row = row;
+		this.bound = bound;
+	}
+
+	/**
+	 * Compute population in target query, using single thread method when it's
+	 * less than cutoff, otherwise use multiple calculate method
+	 */
+	@Override
+	protected Integer compute() {
+		if (hi - lo < SEQUENTIAL_THRESHOLD) {
+			int targetPopulation = 0;
+			for (int i = lo; i < hi; i++) {
+
+				CensusGroup file = grid.data[i];
+				float lon = file.longitude;
+				float lag = file.latitude;
+				float west = ((target.left - 1) / col)
+						* (bound.right - bound.left) + bound.left;
+				float east = (target.right / col) * (bound.right - bound.left)
+						+ bound.left;
+				float south = ((target.bottom - 1) / row)
+						* (bound.top - bound.bottom) + bound.bottom;
+				float north = (target.top / row) * (bound.top - bound.bottom)
+						+ bound.bottom;
+				if (lag <= north && lag >= south && lon <= east && lon >= west) {
+					targetPopulation += file.population;
+				}
+			}
+			return targetPopulation;
+		} else {
+			int mid = (hi + lo) / 2;
+			TargetPopulation left = new TargetPopulation(grid, lo, mid, target,
+					col, row, bound);
+			TargetPopulation right = new TargetPopulation(grid, mid, hi,
+					target, col, row, bound);
+			left.fork();
+			int rightside = right.compute();
+			int leftside = left.join();
+			return rightside + leftside;
+
+		}
+	}
+
+	/**
+	 * Gets the population of the required query rectangle
+	 * 
+	 * @param target
+	 *            target query to calculate population in
+	 * @return the population in target query
+	 */
+	public Integer targetPoplulation(Rectangle target) {
+		int result = fjPool.invoke(new TargetPopulation(grid, 0,
+				grid.data_size, target, col, row, bound));
+		return result;
+	}
+}

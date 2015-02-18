@@ -1,0 +1,306 @@
+/**
+ * Yingying Wang (yingyw)
+ * Xiaoyan Chen(h13579)
+ * CSE332 Projects 3
+ */
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.*;
+
+/**
+ * This class implements PopulationQuery program to get population in input
+ * required query using different versions of calculating methods.
+ */
+public class PopulationQuery {
+	// next four constants are relevant to parsing
+	public static final int TOKENS_PER_LINE = 7;
+	public static final int POPULATION_INDEX = 4; // zero-based indices
+	public static final int LATITUDE_INDEX = 5;
+	public static final int LONGITUDE_INDEX = 6;
+	private static VersionOne v1;
+	private static VersionTwo v2;
+	private static VersionThree v3;
+	private static VersionFour v4;
+	private static VersionFive v5;
+	private static CensusData file;
+	private static int columns;
+	private static int rows;
+	private static Rectangle coordinates;
+
+	// parse the input file into a large array held in a CensusData object
+	public static CensusData parse(String filename) {
+		CensusData result = new CensusData();
+
+		try {
+			BufferedReader fileIn = new BufferedReader(new FileReader("src/"
+					+ filename));
+
+			// Skip the first line of the file
+			// After that each line has 7 comma-separated numbers (see constants
+			// above)
+			// We want to skip the first 4, the 5th is the population (an int)
+			// and the 6th and 7th are latitude and longitude (floats)
+			// If the population is 0, then the line has latitude and longitude
+			// of +.,-.
+			// which cannot be parsed as floats, so that's a special case
+			// (we could fix this, but noisy data is a fact of life, more fun
+			// to process the real data as provided by the government)
+
+			String oneLine = fileIn.readLine(); // skip the first line
+
+			// read each subsequent line and add relevant data to a big array
+			while ((oneLine = fileIn.readLine()) != null) {
+				String[] tokens = oneLine.split(",");
+				if (tokens.length != TOKENS_PER_LINE)
+					throw new NumberFormatException();
+				int population = Integer.parseInt(tokens[POPULATION_INDEX]);
+				if (population != 0)
+					result.add(population,
+							Float.parseFloat(tokens[LATITUDE_INDEX]),
+							Float.parseFloat(tokens[LONGITUDE_INDEX]));
+			}
+
+			fileIn.close();
+		} catch (IOException ioe) {
+			System.err
+					.println("Error opening/reading/writing input or output file.");
+			System.exit(1);
+		} catch (NumberFormatException nfe) {
+			System.err.println(nfe.toString());
+			System.err.println("Error in file format");
+			System.exit(1);
+		}
+		return result;
+	}
+
+	// argument 1: file name for input data: pass this to parse
+	// argument 2: number of x-dimension buckets
+	// argument 3: number of y-dimension buckets
+	// argument 4: -v1, -v2, -v3, -v4, or -v5
+	public static void main(String[] args) {
+		if (args.length != 4) {
+			System.err.println("Should input 4 arguments");
+			System.err
+					.println("Usage: java PopulationQuery <filename> <x> <y> [ -v1 | -v2 | -v3 | -v4 | -v5]");
+			System.exit(1); // if you argument size is not 4,exit
+		}
+		String filename = args[0];
+		try {
+			Integer.parseInt(args[1]); // second and third arguments should be
+										// integer
+			Integer.parseInt(args[2]);
+		} catch (NumberFormatException e) {
+			System.err.println("Invalid arguments" + args[1] + "or" + args[2]);
+			System.err.println("first two arguments should be an integer");
+			System.exit(1);
+		}
+		columns = Integer.parseInt(args[1]);
+		rows = Integer.parseInt(args[2]);
+		String versionNum = args[3].substring(2);
+		int version = Integer.parseInt(versionNum);
+		preprocess(filename, columns, rows, version);
+
+	}
+
+	/**
+	 * parse given file and analyze the file according to different version
+	 * number
+	 * 
+	 * @param filename
+	 *            population file needed to analyze
+	 * @param columns
+	 *            number of columns to divide map
+	 * @param rows
+	 *            number of rows to divide map
+	 * @param versionNum
+	 *            number of version to run
+	 */
+	public static void preprocess(String filename, int columns, int rows,
+			int versionNum) {
+		file = parse(filename);
+		if (versionNum == 1) {
+			while (true) {
+				version1();
+			}
+		} else if (versionNum == 2) {
+			while (true) {
+				version2();
+			}
+		} else if (versionNum == 3) {
+			while (true) {
+				version3();
+			}
+		} else if (versionNum == 4) {
+			while (true) {
+				version4();
+			}
+		} else if (versionNum == 5) {
+			while (true) {
+				version5();
+			}
+
+		} else {
+			System.err
+					.println("Please enter -v1, -v2, -v3, -v4, or -v5 for forth argument");
+			System.exit(1);
+		}
+	}
+
+	/**
+	 * Returns a rectangle with input west,east,north and south bounds if there
+	 * is an invalid input, exit.
+	 * 
+	 * @param x
+	 *            number of columns to divide map
+	 * @param y
+	 *            number of rows to divide map
+	 * @return a rectangle with input west,east,north and south bounds
+	 */
+	private static Rectangle corners(int x, int y) {
+		Scanner sc = new Scanner(System.in);
+		System.out
+				.println("Please give west, south, east, north coordinates of your query rectangle:");
+		String input = sc.nextLine();
+		Scanner inputInt = new Scanner(input);
+		int[] coordinate = new int[4];
+		for (int i = 0; i < 4; i++) {
+			if (inputInt.hasNextInt()) {
+				coordinate[i] = inputInt.nextInt();
+			} else {
+				System.err.println("Invalid input coordinate");
+				System.exit(1);
+			}
+		}
+
+		if (inputInt.hasNext()) {
+			System.err.println("Invalid input coordinate");
+			System.exit(1);
+		}
+		inputInt.close();
+
+		int west = coordinate[0];
+		int south = coordinate[1];
+		int east = coordinate[2];
+		int north = coordinate[3];
+		// exit if there is an invalid input bound
+		if (west < 1 || west > x) {
+			System.err.print("Invalid coordinate input west coordinate");
+			sc.close();
+			System.exit(1);
+		} else if (south < 1 || south > y) {
+			System.err.print("Invalid coordinate input south coordinate");
+			sc.close();
+			System.exit(1);
+		} else if (east < west || east > x) {
+			System.err.print("Invalid coordinate input east coordinate");
+			sc.close();
+			System.exit(1);
+		} else if (north < south || north > y) {
+			System.err.print("Invalid coordinate input north coordinate");
+			sc.close();
+			System.exit(1);
+		}
+
+		return new Rectangle(west, east, north, south);
+
+	}
+
+	/**
+	 * Return a pair includes population in required query with given bound and
+	 * percent of total population according to different version number.
+	 * 
+	 * @param west
+	 *            west bound of query
+	 * @param south
+	 *            south bound of query
+	 * @param east
+	 *            east bound of query
+	 * @param north
+	 *            north bound of query
+	 * @return a pair includes population in required query and percent of total
+	 *         population.
+	 */
+	public static Pair<Integer, Float> singleInteraction(int west, int south,
+			int east, int north) {
+		Rectangle target = new Rectangle(west, east, north, south);
+		int versionNum = USMaps.getVersionNum();
+		if (versionNum == 1) {
+			v1 = new VersionOne(file, columns, rows, target);
+			return v1.getPair();
+		} else if (versionNum == 2) {
+			v2 = new VersionTwo(file, rows, columns, target);
+			return v2.getPair();
+		} else {
+			return null;
+		}
+	}
+
+	/**
+	 * run version 1, print out population and percent of total population
+	 */
+	public static void version1() {
+		coordinates = corners(columns, rows);
+		v1 = new VersionOne(file, columns, rows, coordinates);
+		System.out.println("population of rectangle: "
+				+ v1.getTargetPopulation());
+		System.out.printf("percent of total population: %.2f", v1.getPair()
+				.getElementB());
+		System.out.println();
+
+	}
+
+	/**
+	 * run version 2, print out population and percent of total population
+	 */
+	public static void version2() {
+		coordinates = corners(columns, rows);
+		v2 = new VersionTwo(file, columns, rows, coordinates);
+		System.out.println("population of rectangle: "
+				+ v2.getTargetPopulation());
+		System.out.printf("percent of total population: %.2f", v2.getPair()
+				.getElementB());
+		System.out.println();
+	}
+
+	/**
+	 * run version 3, print out population and percent of total population
+	 */
+	public static void version3() {
+		coordinates = corners(columns, rows);
+		v3 = new VersionThree(file, columns, rows, coordinates);
+		System.out.println("population of rectangle: "
+				+ v3.getTargetPopulation(coordinates));
+		System.out.printf("percent of total population: %.2f", v3.getPair()
+				.getElementB());
+		System.out.println();
+	}
+
+	/**
+	 * run version 4, print out population and percent of total population
+	 */
+	public static void version4() {
+		coordinates = corners(columns, rows);
+		v4 = new VersionFour(file, columns, rows, coordinates);
+		Pair<Integer, Float> pair = v4.getPair();
+		System.out.println("population of rectangle: " + pair.getElementA());
+		System.out.printf("percent of total population: %.2f",
+				pair.getElementB());
+		System.out.println();
+	}
+
+	/**
+	 * run version 5, print out population and percent of total population
+	 */
+	public static void version5() {
+		coordinates = corners(columns, rows);
+		v5 = new VersionFive(file, columns, rows, coordinates);
+		Pair<Integer, Float> pair = v5.getPair();
+		System.out.println("population of rectangle: " + pair.getElementA());
+		System.out.printf("percent of total population: %.2f",
+				pair.getElementB());
+		System.out.println();
+
+	}
+
+}

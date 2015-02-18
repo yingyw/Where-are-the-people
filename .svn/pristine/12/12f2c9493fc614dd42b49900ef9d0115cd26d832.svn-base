@@ -1,0 +1,60 @@
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveTask;
+
+
+public class ProcessGridPop extends RecursiveTask<int[][]> {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	public static ForkJoinPool fjPool = new ForkJoinPool();
+	static final int SEQUENTIAL_THRESHOLD=100;
+	CensusData file;
+	int hi;
+	int lo;
+    int[][] result;
+    int col;
+    int row;
+    Rectangle bound;
+	public ProcessGridPop(CensusData file, int lo, int hi, Rectangle bound){
+		this.file = file;
+		this.hi = hi;
+		this.lo = lo;
+		this.bound = bound;
+		result = new int[lo][hi];
+	}
+	
+	@Override
+	protected int[][] compute() {
+		if(hi - lo <= SEQUENTIAL_THRESHOLD){
+			for (int i = lo; i < hi; i++) {
+				CensusGroup grid = file.data[i];
+				float lon = grid.longitude;
+				float lag = grid.latitude;
+				double col = result.length * (lon - bound.left)
+						/ (bound.right - bound.left);
+				int posCol = (int) col;
+				double row = result[0].length * (lag - bound.bottom)
+						/ (bound.top - bound.bottom);
+				int posRow = (int) row;
+				if (posCol == result.length) {
+					posCol = posCol - 1;
+				}
+				if (posRow == result[0].length) {
+					posRow = posRow - 1;
+				}
+				result[posCol][posRow] += grid.population;
+			}
+		}else {
+			ProcessGridPop left = new ProcessGridPop(file,lo,(lo+hi)/2,bound);
+			ProcessGridPop right = new ProcessGridPop(file,(lo+hi)/2,hi,bound);
+
+			left.fork();
+			int[][] rightside = right.compute();
+			int[][] leftside = left.join();
+
+			
+		}
+	}
+
+}
